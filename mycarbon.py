@@ -1,84 +1,94 @@
 import streamlit as st
+import pandas as pd
 import matplotlib.pyplot as plt
+from datetime import date
+import os
 
-st.set_page_config(page_title="MyCarbon | Karbon Ayak İzi", layout="wide")
+st.set_page_config(page_title="MyCarbon", page_icon="🌿")
 
-st.title("🌍 MyCarbon – Kişisel Karbon Ayak İzi Analizi")
-st.write("Bu uygulama bireylerin karbon ayak izini hesaplar ve azaltmaya yönelik **akıllı öneriler** sunar.")
+st.title("🌿 MyCarbon – Karbon Ayak İzi Hesaplayıcı")
+st.write("Bu uygulama eğitim ve farkındalık amaçlıdır.")
 
-st.divider()
+# --- KATSAYILAR ---
+ulasim_katsayi = {
+    "Yürüyüş": 0,
+    "Toplu Taşıma": 0.05,
+    "Özel Araç": 0.21
+}
 
-# --- KULLANICI GİRDİLERİ ---
-st.header("📥 Günlük Alışkanlıklarını Gir")
+enerji_katsayi = 0.233  # kg CO2 / saat
 
-km = st.slider("🚗 Günlük araçla gidilen mesafe (km)", 0, 100, 10)
-electricity = st.slider("⚡ Aylık elektrik tüketimi (kWh)", 50, 500, 200)
-meat_days = st.slider("🍖 Haftada kaç gün kırmızı et tüketiyorsun?", 0, 7, 3)
+beslenme_katsayi = {
+    "Sebze Ağırlıklı": 1.5,
+    "Karışık": 2.5,
+    "Et Ağırlıklı": 3.5
+}
 
-# --- HESAPLAMA (EMİSYON FAKTÖRLERİ) ---
-transport_emission = km * 0.21        # kg CO2 / gün
-electricity_emission = electricity * 0.42 / 30
-meat_emission = meat_days * 2.5 / 7
+# --- KULLANICI GİRİŞLERİ ---
+st.header("📥 Günlük Bilgileri Gir")
 
-total_emission = transport_emission + electricity_emission + meat_emission
+ulasim = st.selectbox("🚶 Ulaşım Türü", list(ulasim_katsayi.keys()))
+km = 0
+if ulasim != "Yürüyüş":
+    km = st.number_input("Günlük kaç km?", min_value=0.0)
 
-st.divider()
+enerji_saat = st.number_input("⚡ Elektrikli cihaz kullanım süresi (saat)", min_value=0.0)
+beslenme = st.selectbox("🥗 Beslenme Türü", list(beslenme_katsayi.keys()))
 
-# --- SONUÇ ---
-st.header("📊 Günlük Karbon Ayak İzin")
-st.metric(label="Toplam (kg CO₂ / gün)", value=round(total_emission, 2))
+# --- HESAPLAMA ---
+ulasim_co2 = km * ulasim_katsayi[ulasim]
+enerji_co2 = enerji_saat * enerji_katsayi
+beslenme_co2 = beslenme_katsayi[beslenme]
+toplam_co2 = ulasim_co2 + enerji_co2 + beslenme_co2
 
-# --- GRAFİK ---
-labels = ["Ulaşım", "Elektrik", "Beslenme"]
-values = [transport_emission, electricity_emission, meat_emission]
+# --- BUTON ---
+if st.button("🌍 Karbon Ayak İzini Hesapla"):
+    st.subheader("📊 Sonuçlar")
+    st.write(f"🚶 Ulaşım: **{ulasim_co2:.2f} kg CO₂**")
+    st.write(f"⚡ Enerji: **{enerji_co2:.2f} kg CO₂**")
+    st.write(f"🥗 Beslenme: **{beslenme_co2:.2f} kg CO₂**")
+    st.success(f"🌿 Toplam Karbon Ayak İzin: **{toplam_co2:.2f} kg CO₂**")
 
-fig, ax = plt.subplots()
-ax.bar(labels, values)
-ax.set_ylabel("kg CO₂")
-ax.set_title("Karbon Ayak İzi Dağılımı")
+    # --- VERİYİ KAYDET ---
+    veri = {
+        "Tarih": date.today(),
+        "Ulaşım_CO2": ulasim_co2,
+        "Enerji_CO2": enerji_co2,
+        "Beslenme_CO2": beslenme_co2,
+        "Toplam_CO2": toplam_co2
+    }
 
-st.pyplot(fig)
+    dosya = "karbon_verileri.csv"
 
-st.divider()
+    if os.path.exists(dosya):
+        df = pd.read_csv(dosya)
+        df = pd.concat([df, pd.DataFrame([veri])], ignore_index=True)
+    else:
+        df = pd.DataFrame([veri])
 
-# --- AKILLI ÖNERİ SİSTEMİ ---
-st.header("🤖 Kişisel Karbon Azaltma Önerileri")
+    df.to_csv(dosya, index=False)
 
-recommendations = []
+    st.info("📁 Günlük veri kaydedildi.")
 
-if km > 20:
-    recommendations.append(
-        "🚲 Ulaşım kaynaklı emisyonun yüksek. Haftada 2 gün toplu taşıma veya bisiklet kullanarak %15–20 azaltabilirsin."
+    # --- GRAFİK ---
+    st.subheader("📈 Karbon Dağılım Grafiği")
+
+    fig, ax = plt.subplots()
+    ax.bar(
+        ["Ulaşım", "Enerji", "Beslenme"],
+        [ulasim_co2, enerji_co2, beslenme_co2]
     )
+    ax.set_ylabel("kg CO₂")
+    ax.set_title("Günlük Karbon Ayak İzi Dağılımı")
 
-if electricity > 250:
-    recommendations.append(
-        "💡 Elektrik tüketimin fazla. LED ampuller ve prizden çekme alışkanlığıyla aylık %10 tasarruf mümkün."
-    )
+    st.pyplot(fig)
 
-if meat_days >= 4:
-    recommendations.append(
-        "🥗 Kırmızı et tüketimin yüksek. Haftada 1 gün azaltmak karbon ayak izini ciddi düşürür."
-    )
+# --- KAYITLI VERİLER ---
+if os.path.exists("karbon_verileri.csv"):
+    st.subheader("🗂️ Önceki Günler")
+    st.dataframe(pd.read_csv("karbon_verileri.csv"))
 
-if not recommendations:
-    st.success("👏 Harika! Karbon ayak izin zaten düşük. Bu alışkanlıkları sürdür.")
-else:
-    for rec in recommendations:
-        st.write("- " + rec)
 
-st.divider()
 
-# --- SENARYO ANALİZİ ---
-st.header("🔮 Senaryo Analizi")
-
-reduced_emission = (km * 0.15) + electricity_emission + meat_emission
-difference = total_emission - reduced_emission
-
-st.write(
-    f"Eğer araç kullanımını azaltırsan günlük karbon ayak izin yaklaşık **{round(difference,2)} kg CO₂** azalır."
-)
-
-st.caption("📚 Emisyon katsayıları IPCC ve EPA verilerine dayalıdır.")
 
 

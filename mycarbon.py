@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 from datetime import date
 import os
 
-st.set_page_config(page_title="MyCarbon", page_icon="🌿")
+st.set_page_config(page_title="GreenMetric", page_icon="🌿")
+
+st.title("🌿 GreenMetric – Akıllı Karbon Analiz Sistemi")
 
 dosya = "karbon_verileri.csv"
 
@@ -23,82 +25,70 @@ beslenme_katsayi = {
     "Et Ağırlıklı": 3.5
 }
 
-# --- AI ÖNERİ ---
-def ai_oneri(toplam):
-    if toplam < 3:
-        return "🌿 Harika! Karbon ayak izin oldukça düşük."
-    elif toplam < 6:
-        return "👍 İyi gidiyorsun. Enerji tasarrufunu artırabilirsin."
+# --- KİŞİYE ÖZEL AI ÖNERİ ---
+def ai_kisisel_oneri(ulasim, enerji, beslenme):
+    en_yuksek = max({
+        "Ulaşım": ulasim,
+        "Enerji": enerji,
+        "Beslenme": beslenme
+    }, key=lambda x: {
+        "Ulaşım": ulasim,
+        "Enerji": enerji,
+        "Beslenme": beslenme
+    }[x])
+
+    if en_yuksek == "Ulaşım":
+        return "🚶 Ulaşım karbon oranınız yüksek. Toplu taşıma veya yürüyüşü artırabilirsiniz."
+    elif en_yuksek == "Enerji":
+        return "⚡ Enerji tüketiminiz yüksek. Cihaz kullanım süresini azaltabilirsiniz."
     else:
-        return "⚠️ Karbon ayak izin yüksek. Özel araç ve enerji kullanımını azaltmayı deneyebilirsin."
+        return "🥗 Beslenme kaynaklı karbon oranı yüksek. Sebze ağırlıklı beslenme tercih edilebilir."
 
 # --- ANA SAYFA ---
-st.title("🌿 MyCarbon")
-
-secim = st.radio("Seçim yapınız:", ["👤 Öğrenci Kayıt", "🔐 Yönetici Paneli"])
+secim = st.radio("Seçim Yap:", ["👤 Öğrenci Girişi", "🔐 Yönetici Paneli"])
 
 # ======================================================
-# 👤 ÖĞRENCİ KAYIT
+# 👤 ÖĞRENCİ GİRİŞİ
 # ======================================================
-if secim == "👤 Öğrenci Kayıt":
+if secim == "👤 Öğrenci Girişi":
 
-    if "ogrenci_kayit" not in st.session_state:
-        st.session_state.ogrenci_kayit = False
+    isim = st.text_input("İsim")
+    soyisim = st.text_input("Soyisim")
+    sinif = st.text_input("Sınıf")
+    numara = st.text_input("Numara")
 
-    # --- KAYIT EKRANI ---
-    if not st.session_state.ogrenci_kayit:
-        st.header("👤 Öğrenci Bilgileri")
+    if isim and soyisim and sinif and numara:
 
-        isim = st.text_input("İsim")
-        soyisim = st.text_input("Soyisim")
-        sinif = st.text_input("Sınıf")
-        numara = st.text_input("Okul Numarası")
+        st.header("📅 Günlük Veri Girişi")
 
-        if st.button("Devam Et"):
-            if isim and soyisim and sinif and numara:
-                st.session_state.ogrenci_kayit = True
-                st.session_state.isim = isim
-                st.session_state.soyisim = soyisim
-                st.session_state.sinif = sinif
-                st.session_state.numara = numara
-            else:
-                st.error("Tüm alanları doldurun.")
-
-    # --- GÜNLÜK VERİ GİRİŞİ ---
-    else:
-        st.header("📅 Günlük Karbon Verisi")
-
-        st.write(f"👤 {st.session_state.isim} {st.session_state.soyisim}")
-
-        ulasim = st.selectbox("🚶 Ulaşım Türü", list(ulasim_katsayi.keys()))
+        ulasim = st.selectbox("Ulaşım", list(ulasim_katsayi.keys()))
         km = 0
         if ulasim != "Yürüyüş":
-            km = st.number_input("Günlük kaç km?", min_value=0.0)
+            km = st.number_input("Km", min_value=0.0)
 
-        enerji_saat = st.number_input("⚡ Elektrikli cihaz süresi (saat)", min_value=0.0)
-        beslenme = st.selectbox("🥗 Beslenme Türü", list(beslenme_katsayi.keys()))
+        enerji_saat = st.number_input("Enerji (saat)", min_value=0.0)
+        beslenme = st.selectbox("Beslenme", list(beslenme_katsayi.keys()))
 
-        if st.button("🌍 Hesapla ve Kaydet"):
+        if st.button("Hesapla ve Kaydet"):
 
             ulasim_co2 = km * ulasim_katsayi[ulasim]
             enerji_co2 = enerji_saat * enerji_katsayi
             beslenme_co2 = beslenme_katsayi[beslenme]
-            toplam_co2 = ulasim_co2 + enerji_co2 + beslenme_co2
+            toplam = ulasim_co2 + enerji_co2 + beslenme_co2
 
-            st.success(f"Toplam: {toplam_co2:.2f} kg CO₂")
-            st.info(ai_oneri(toplam_co2))
+            st.success(f"Toplam: {toplam:.2f} kg CO₂")
+            st.info(ai_kisisel_oneri(ulasim_co2, enerji_co2, beslenme_co2))
 
-            # --- GÜNLÜK VERİYİ KAYDET ---
             veri = {
                 "Tarih": date.today(),
-                "İsim": st.session_state.isim,
-                "Soyisim": st.session_state.soyisim,
-                "Sınıf": st.session_state.sinif,
-                "Numara": st.session_state.numara,
-                "Ulaşım_CO2": ulasim_co2,
-                "Enerji_CO2": enerji_co2,
-                "Beslenme_CO2": beslenme_co2,
-                "Toplam_CO2": toplam_co2
+                "İsim": isim,
+                "Soyisim": soyisim,
+                "Sınıf": sinif,
+                "Numara": numara,
+                "Ulaşım": ulasim_co2,
+                "Enerji": enerji_co2,
+                "Beslenme": beslenme_co2,
+                "Toplam": toplam
             }
 
             if os.path.exists(dosya):
@@ -109,47 +99,53 @@ if secim == "👤 Öğrenci Kayıt":
 
             df.to_csv(dosya, index=False)
 
-            st.success("📁 Günlük kayıt eklendi!")
+            # --- ZAMAN İÇİNDE DÜŞÜŞ ANALİZİ ---
+            ogrenci_df = df[
+                (df["İsim"] == isim) &
+                (df["Soyisim"] == soyisim) &
+                (df["Numara"] == numara)
+            ]
 
-            # Grafik
+            ogrenci_df = ogrenci_df.sort_values("Tarih")
+
+            st.subheader("📉 Zaman İçindeki Değişim")
+
             fig, ax = plt.subplots()
-            ax.bar(["Ulaşım", "Enerji", "Beslenme"],
-                   [ulasim_co2, enerji_co2, beslenme_co2])
+            ax.plot(ogrenci_df["Tarih"], ogrenci_df["Toplam"])
             ax.set_ylabel("kg CO₂")
+            ax.set_xticklabels(ogrenci_df["Tarih"], rotation=45)
             st.pyplot(fig)
-
-        if st.button("Çıkış Yap"):
-            st.session_state.ogrenci_kayit = False
 
 # ======================================================
 # 🔐 YÖNETİCİ PANELİ
 # ======================================================
 elif secim == "🔐 Yönetici Paneli":
 
-    sifre = st.text_input("Yönetici Şifresi", type="password")
+    sifre = st.text_input("Şifre", type="password")
 
     if sifre == "4380":
-        st.success("Giriş başarılı")
 
         if os.path.exists(dosya):
-            df_admin = pd.read_csv(dosya)
 
-            # Günlük kayıtlar olduğu için:
-            # Ortalama karbon ayak izi hesaplayıp sıralıyoruz
-            ortalama = df_admin.groupby(
+            df = pd.read_csv(dosya)
+
+            st.subheader("🏫 Okul Genel Sıralaması")
+
+            okul = df.groupby(
                 ["İsim", "Soyisim", "Sınıf", "Numara"]
-            )["Toplam_CO2"].mean().reset_index()
+            )["Toplam"].mean().reset_index()
 
-            ortalama = ortalama.sort_values("Toplam_CO2")
+            okul = okul.sort_values("Toplam")
 
-            st.subheader("🏆 Ortalama Karbon Ayak İzi Sıralaması")
-            st.dataframe(ortalama)
+            st.dataframe(okul)
+
+            st.subheader("📊 Sınıf Ortalamaları")
+
+            sinif_ort = df.groupby("Sınıf")["Toplam"].mean().reset_index()
+            st.dataframe(sinif_ort)
 
         else:
-            st.warning("Henüz veri yok.")
-
-    elif sifre != "":
-        st.error("Şifre yanlış.")
+            st.warning("Veri bulunamadı.")
 
 
 
